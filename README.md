@@ -1,4 +1,4 @@
-# ** AI-Powered Market Research, Use Case Generation, and Resource Collection**
+# AI-Powered Market Research, Use Case Generation, and Resource Collection**
 
 This project implements a **multi-agent system** to automate **market research**, **AI/ML use case generation**, and **resource collection**. It uses **Langchain**, **LangGraph**, **Gradio** and **Tavily API** to generate actionable AI solutions tailored to industries or companies.
 
