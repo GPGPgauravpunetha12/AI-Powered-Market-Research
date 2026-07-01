@@ -1,4 +1,3 @@
-import gradio as gr
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
 from typing import TypedDict, Annotated
@@ -6,9 +5,13 @@ import operator
 from langchain_core.messages import AnyMessage, SystemMessage, HumanMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 from langchain_community.tools.tavily_search import TavilySearchResults
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
 import os
 from datetime import datetime
 import logging
+import uvicorn
 
 # Load environment variables
 load_dotenv()
@@ -18,18 +21,20 @@ TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # LLM (Groq via OpenAI-compatible endpoint)
-llm = ChatOpenAI(
-    model="llama-3.3-70b-versatile",
-    openai_api_key=GROQ_API_KEY,
-    openai_api_base="https://api.groq.com/openai/v1",
-    temperature=0
-)
+llm = None
+if GROQ_API_KEY:
+    llm = ChatOpenAI(
+        model="llama-3.3-70b-versatile",
+        openai_api_key=GROQ_API_KEY,
+        openai_api_base="https://api.groq.com/openai/v1",
+        temperature=0
+    )
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
 # Define the search tool
-tool = TavilySearchResults(max_results=3)
+tool = TavilySearchResults(max_results=3) if TAVILY_API_KEY else None
 
 # Define the AgentState data structure
 class AgentState(TypedDict):
@@ -100,7 +105,7 @@ Key goals:
 Output: Deliver a detailed yet concise analysis with insights that help generate tailored AI use cases.
 """
 
-research_agent = Agent(llm, [tool], system=research_prompt)
+research_agent = Agent(llm, [tool] if tool else [], system=research_prompt) if llm else None
 
 # Market Standards & Use Case Generation Agent
 use_case_prompt = """
@@ -149,7 +154,7 @@ Key goals:
 **Remember**: Relevance and creativity are critical in generating use cases that demonstrate the unique value AI/ML/automation can bring to the industry or company.
 """
 
-use_case_agent = Agent(llm, [tool], system=use_case_prompt)
+use_case_agent = Agent(llm, [tool] if tool else [], system=use_case_prompt) if llm else None
 
 # Resource Asset Collection Agent
 resource_collection_prompt = """
@@ -167,7 +172,49 @@ Key goals:
 Output: Deliver a detailed list of datasets, tools, resources, and GenAI solutions organized by use case. Provide clear links and descriptions for each.
 """
 
-resource_agent = Agent(llm, [tool], system=resource_collection_prompt)
+resource_agent = Agent(llm, [tool] if tool else [], system=resource_collection_prompt) if llm else None
+
+def build_fallback_content(query: str):
+    topic = query.strip() or "your industry"
+    research = f"""Market research overview for {topic}
+
+- Market context: {topic} is a fast-moving area where operational efficiency, customer experience, and automation are key value drivers.
+- Market trends: Demand is shifting toward more personalized offerings, lower-friction operations, and faster decision-making.
+- Recommended focus: Prioritize high-volume workflows, decision support, and workflow automation where AI can create measurable ROI.
+
+Suggested next step: Add a valid GROQ_API_KEY to switch from this fallback to live Groq-generated research.
+"""
+
+    use_cases = f"""AI / ML use cases for {topic}
+
+1. Intelligent forecasting and planning
+   - Use AI to predict demand, inventory, and staffing needs more accurately.
+
+2. Workflow automation and document processing
+   - Automate repetitive document review, triage, and internal knowledge retrieval.
+
+3. Customer support augmentation
+   - Combine LLMs with internal knowledge to answer common support questions faster.
+
+4. Recommendation and personalization
+   - Tailor offers, content, and user journeys using historical behavior data.
+
+5. Risk monitoring and anomaly detection
+   - Detect unusual patterns in transactions, operations, or customer behavior.
+"""
+
+    resources = f"""Starter resources for {topic}
+
+- Kaggle datasets and public repositories related to {topic}
+- Open-source tools such as LangChain, LangGraph, and Gradio for rapid prototyping
+- Groq-compatible LLM endpoints for production-ready inference
+- Internal documentation, CSV exports, and CRM data to build a first proof of concept
+
+To activate live Groq generation, add GROQ_API_KEY to your environment or .env file.
+"""
+
+    return research, use_cases, resources
+
 
 # Function to save resources to a file
 def save_resources_to_file(content: str, directory: str = "output"):
@@ -203,6 +250,13 @@ def save_resources_to_file(content: str, directory: str = "output"):
 
 # Multi-Agent Workflow
 def multi_agent_workflow(question):
+    if not llm or not research_agent or not use_case_agent or not resource_agent:
+        logging.warning("Groq is not configured. Using local fallback content.")
+        research_content, use_case_content, resource_content = build_fallback_content(question)
+        file_path = save_resources_to_file(resource_content)
+        logging.info(f"Fallback resource file saved at: {file_path}")
+        return research_content, use_case_content, resource_content
+
     # Step 1: Research the Industry or the Company
     research_messages = [HumanMessage(content=question)]
     research_state = {"messages": research_messages}
@@ -232,61 +286,35 @@ def multi_agent_workflow(question):
     return research_content, use_case_content, resource_content
 
 
-# Define Gradio Interface
-with gr.Blocks() as demo:
-    gr.Markdown("# Multi-Agent System for AI-Powered Market Research, Use Case Generation, and Resource Collection")
-    query = gr.Textbox(label="Enter Industry or Company Query")
-    output = gr.Markdown()
-    submit_button = gr.Button("Generate Insights")
-
-    def gradio_interface_with_progress(query):
-        import time
-        progress_log = ""  # Accumulate all outputs
-        try:
-            # Step 1: Research the Industry or the Company
-            yield "Step 1: Researching the Industry or the Company..."  # Update progress bar
-            research_messages = [HumanMessage(content=query)]
-            research_state = {"messages": research_messages}
-            research_result = research_agent.graph.invoke(research_state)
-            research_content = research_result["messages"][-1].content
-            progress_log += f"### Research Output:\n{research_content}\n\n"
-            time.sleep(1)  # Simulate progress for visibility
-
-            # Step 2: Generate Use Cases
-            yield "Step 2: Generating Use Cases..."  # Update progress bar
-            use_case_messages = [
-                HumanMessage(content=f"Input Research: {research_content}")
-            ]
-            use_case_state = {"messages": use_case_messages}
-            use_case_result = use_case_agent.graph.invoke(use_case_state)
-            use_case_content = use_case_result["messages"][-1].content
-            progress_log += f"### Use Case Output:\n{use_case_content}\n\n"
-            time.sleep(1)  # Simulate progress for visibility
-
-            # Step 3: Collect Resources
-            yield "Step 3: Collecting Resources..."  # Update progress bar
-            resource_messages = [
-                HumanMessage(content=f"Use Case Input: {use_case_content}")
-            ]
-            resource_state = {"messages": resource_messages}
-            resource_result = resource_agent.graph.invoke(resource_state)
-            resource_content = resource_result["messages"][-1].content
-            progress_log += f"### Resource Output:\n{resource_content}\n\n"
-            file_path = save_resources_to_file(resource_content)
-            progress_log += f"**Resources saved at:** {file_path}\n\n"
-            time.sleep(1)  # Simulate progress for visibility
+app = FastAPI(title="AI Market Research API")
 
 
-            # Final Output
-            progress_log += "### Process Completed Successfully!"
-            yield progress_log  # Display final accumulated output
-        except Exception as e:
-            progress_log += f"Error occurred: {e}"
-            yield progress_log  # Display error message
+@app.get("/")
+def index():
+    return FileResponse("index.html")
 
 
-    # Connect buttons
-    submit_button.click(gradio_interface_with_progress, inputs=[query], outputs=[output])
+class ResearchRequest(BaseModel):
+    query: str
 
-# Launch
-demo.launch()
+
+@app.post("/api/research")
+def research_api(payload: ResearchRequest):
+    try:
+        if not payload.query or not payload.query.strip():
+            raise HTTPException(status_code=400, detail="Please enter a query")
+
+        research_content, use_case_content, resource_content = multi_agent_workflow(payload.query.strip())
+        model_name = "groq/llama-3.3-70b-versatile" if llm else "local-fallback"
+        return {
+            "research": research_content,
+            "useCases": use_case_content,
+            "resources": resource_content,
+            "model": model_name
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8001)
