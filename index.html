@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Market Research — Multi-Agent System</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://js.puter.com/v2/"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
@@ -95,21 +94,11 @@
 </head>
 <body>
 
-<!-- AUTH GATE — shown first, requires user click to trigger popup -->
-<div id="authGate">
-    <h1>🔬 AI Market Research Agent</h1>
-    <p>Free multi-agent system powered by Claude Opus 4.7 via Puter.js. Sign in once to unlock unlimited AI research.</p>
-    <button class="btn-auth" id="signInBtn" onclick="doSignIn()">🔐 Sign in with Puter (Free)</button>
-    <p style="font-size:0.75rem;color:var(--text2);margin-top:-8px;">One-click sign-in • No credit card • Allow popups if prompted</p>
-</div>
-
-<!-- MAIN APP — hidden until authenticated -->
 <div id="mainApp">
     <div class="header">
-        <button class="signout-btn" onclick="doSignOut()">Sign Out</button>
-        <div class="badge">Powered by Claude Opus 4.7 via Puter.js — 100% Free</div>
+        <div class="badge">No external AI integration configured</div>
         <h1>🔬 AI Market Research Agent</h1>
-        <p>Multi-agent system for industry analysis, use case generation &amp; resource collection</p>
+        <p>Use this template to wire up your own backend for industry analysis and insights.</p>
     </div>
 
     <div class="container">
@@ -118,11 +107,6 @@
             <div class="input-row">
                 <input type="text" id="queryInput" placeholder="e.g. Tesla, Healthcare AI, Retail Supply Chain...">
                 <button class="btn" id="startBtn" onclick="runPipeline()">🚀 Generate Insights</button>
-            </div>
-            <div class="model-row">
-                <div class="model-chip active" data-model="claude-opus-4-7" onclick="selectModel(this)">Claude Opus 4.7</div>
-                <div class="model-chip" data-model="claude-sonnet-4-6" onclick="selectModel(this)">Claude Sonnet 4.6</div>
-                <div class="model-chip" data-model="claude-haiku-4-5" onclick="selectModel(this)">Claude Haiku 4.5</div>
             </div>
         </div>
 
@@ -163,49 +147,7 @@
 </div>
 
 <script>
-let selectedModel = 'claude-opus-4-7';
 let reportData = { research: '', useCases: '', resources: '' };
-
-// ─── AUTH HANDLING ───
-function showApp() {
-    document.getElementById('authGate').style.display = 'none';
-    document.getElementById('mainApp').style.display = 'block';
-}
-
-async function doSignIn() {
-    try {
-        document.getElementById('signInBtn').disabled = true;
-        document.getElementById('signInBtn').textContent = '⏳ Opening sign-in...';
-        await puter.auth.signIn();
-        showApp();
-    } catch (e) {
-        document.getElementById('signInBtn').disabled = false;
-        document.getElementById('signInBtn').textContent = '🔐 Sign in with Puter (Free)';
-        alert('Sign-in was cancelled or blocked. Please allow popups and try again.');
-    }
-}
-
-function doSignOut() {
-    puter.auth.signOut();
-    document.getElementById('authGate').style.display = 'flex';
-    document.getElementById('mainApp').style.display = 'none';
-    document.getElementById('signInBtn').disabled = false;
-    document.getElementById('signInBtn').textContent = '🔐 Sign in with Puter (Free)';
-}
-
-// Auto-check: skip gate if already signed in
-window.addEventListener('load', () => {
-    if (puter.auth.isSignedIn()) {
-        showApp();
-    }
-});
-
-// ─── UI HELPERS ───
-function selectModel(el) {
-    document.querySelectorAll('.model-chip').forEach(c => c.classList.remove('active'));
-    el.classList.add('active');
-    selectedModel = el.dataset.model;
-}
 
 function toggleCard(id) {
     const body = document.getElementById(id).querySelector('.card-body');
@@ -220,53 +162,9 @@ function setStep(n, state) {
     if (state) el.classList.add(state);
 }
 
-// ─── AGENT PROMPTS ───
-const researchPrompt = `You are a market research expert specializing in industry analysis and competitive insights. Conduct a thorough analysis of the given query.
-Key goals:
-1. Understand the Industry and Segment: overview, market trends, segmentation, challenges.
-2. Analyze the Company's Offerings and Focus Areas: key offerings, vision, mission, product/service portfolio.
-3. Competitor Analysis: list competitors, their AI/GenAI/ML innovations, strategies, differentiators.
-4. Quantitative Data: market size, growth rates, technology adoption percentages, revenue impacts.
-5. Actionable Insights: opportunities for AI/ML/automation.
-Output: Deliver a detailed yet concise analysis.`;
-
-const useCasePrompt = `You are an expert in AI use case generation. Based on the research provided, generate actionable AI/GenAI use cases.
-Focus on: AI, ML, GenAI, Automation, LLMs.
-For each use case provide:
-- Objective/Use Case
-- AI/ML/Automation Application
-- Cross-Functional Benefits
-Provide at least 5 impactful use cases in a structured format.`;
-
-const resourcePrompt = `You are an expert in resource asset collection. Based on the use cases provided, identify:
-1. Relevant datasets on Kaggle, HuggingFace, GitHub
-2. Pre-trained models, APIs, or open-source tools
-3. GenAI solutions (Document Search, Report Generation, AI Chat Systems)
-Provide clickable links and descriptions for each resource organized by use case.`;
-
-// ─── CLAUDE API CALL ───
-async function callClaude(systemPrompt, userMessage) {
-    const response = await puter.ai.chat(
-        [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessage }
-        ],
-        { model: selectedModel }
-    );
-    return response.message.content[0].text;
-}
-
-// ─── PIPELINE ───
 async function runPipeline() {
     const query = document.getElementById('queryInput').value.trim();
     if (!query) { alert('Please enter a query'); return; }
-
-    // Check auth before running
-    if (!puter.auth.isSignedIn()) {
-        alert('Please sign in first.');
-        doSignOut();
-        return;
-    }
 
     const btn = document.getElementById('startBtn');
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Working...';
@@ -278,39 +176,36 @@ async function runPipeline() {
     ['card1','card2','card3'].forEach(id => document.getElementById(id).classList.remove('highlight'));
 
     try {
-        // Step 1: Research
         setStep(1, 'active'); setStep(2, ''); setStep(3, '');
         document.getElementById('card1').classList.add('highlight');
         document.getElementById('body1').classList.add('show');
-        document.getElementById('out1').textContent = '⏳ Researching with ' + selectedModel + '...';
+        document.getElementById('out1').textContent = '⏳ Preparing results...';
 
-        const research = await callClaude(researchPrompt, query);
+        const research = `Query received: ${query}\n\nThis demo no longer includes Claude/Puter integration. Replace this code with your own AI backend or API call.`;
         reportData.research = research;
         document.getElementById('out1').textContent = research;
         document.getElementById('out1').className = '';
         setStep(1, 'done');
         document.getElementById('card1').classList.remove('highlight');
 
-        // Step 2: Use Cases
         setStep(2, 'active');
         document.getElementById('card2').classList.add('highlight');
         document.getElementById('body2').classList.add('show');
-        document.getElementById('out2').textContent = '⏳ Generating AI use cases...';
+        document.getElementById('out2').textContent = '⏳ Preparing use case guidance...';
 
-        const useCases = await callClaude(useCasePrompt, 'Input Research:\n' + research);
+        const useCases = `Use case guidance placeholder for: ${query}\n\nAdd your own AI logic here to generate meaningful use cases.`;
         reportData.useCases = useCases;
         document.getElementById('out2').textContent = useCases;
         document.getElementById('out2').className = '';
         setStep(2, 'done');
         document.getElementById('card2').classList.remove('highlight');
 
-        // Step 3: Resources
         setStep(3, 'active');
         document.getElementById('card3').classList.add('highlight');
         document.getElementById('body3').classList.add('show');
-        document.getElementById('out3').textContent = '⏳ Collecting datasets & resources...';
+        document.getElementById('out3').textContent = '⏳ Preparing resources placeholder...';
 
-        const resources = await callClaude(resourcePrompt, 'Use Cases:\n' + useCases);
+        const resources = `Resources placeholder for: ${query}\n\nAdd your own data source lookup or API call here.`;
         reportData.resources = resources;
         document.getElementById('out3').textContent = resources;
         document.getElementById('out3').className = '';
