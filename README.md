@@ -17,7 +17,7 @@ This project implements a **multi-agent system** to automate **market research**
 ## **System Workflow**
 
 The diagram below illustrates the flow of actions taken by the multi-agent system. 
-![codetoflow](https://github.com/user-attachments/assets/996c54a7-0208-4f56-a43d-ed87508ed410)
+![codetoflow]([https://github.com/user-attachments/assets/996c54a7-0208-4f56-a43d-ed87508ed410](https://github.com/user-attachments/assets/c16d3625-e80d-45c9-ae86-a21916df1874))
 
 
 ### Input Query:
