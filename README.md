@@ -17,7 +17,7 @@ This project implements a **multi-agent system** to automate **market research**
 ## **System Workflow**
 
 The diagram below illustrates the flow of actions taken by the multi-agent system. 
-<img width="1163" height="912" alt="Gemini_Generated_Image_nwnwabnwnwabnwnw" src="https://github.com/user-attachments/assets/32810b1b-aaa8-4ee4-81da-351fb318ba26" />
+<img width="1163" height="999" alt="Gemini_Generated_Image_nwnwabnwnwabnwnw" src="https://github.com/user-attachments/assets/32810b1b-aaa8-4ee4-81da-351fb318ba26" />
 
 ### Input Query:
 - Users enter a query into the **Gradio** interface.
